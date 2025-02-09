@@ -20,9 +20,6 @@ import EmpresaRouter from "./routes/empresa.routes";
 import role_router from "./routes/user.roles";
 import EmocionesDiariasRoutes from "./routes/emocionesDiarias.routes";
 import SpeechTextRoutes from "./routes/speechtext.routes";
-import PredictionRoutes from "./routes/predictionRoutes";
-import RfRoutes from "./routes/rf.routes";
-
 
 class App {
   private server: Application;
@@ -64,8 +61,7 @@ class App {
     this.server.use("/api", EmocionesDiariasRoutes); 
     this.server.use("/api/voice", SpeechTextRoutes); 
     //this.server.use("/api", TipoTecnicasRoutes);
-    this.server.use("/api/prediction", PredictionRoutes);
-    this.server.use("/api/randomforest", RfRoutes);
+
   }
   public getServer(): Application {
     return this.server;

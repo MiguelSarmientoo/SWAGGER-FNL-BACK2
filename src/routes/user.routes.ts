@@ -25,7 +25,11 @@ const UserRoutes = Router();
  *      responses:
  *        '200':
  *          description: Retorna el Token
- *        '422':
+ *        '401':
+ *          description: Credenciales invalidas
+ *        '403': 
+ *          description: Usuario sin rol
+ *        '500':
  *          description: Error de validacion.
  */
 UserRoutes.post('/login', UserController.login);
@@ -45,8 +49,8 @@ UserRoutes.post('/login', UserController.login);
  *              schema:
  *                $ref: "#/components/schemas/user"
  *      responses:
- *        '200':
- *          description: Retorna el Token
+ *        '201':
+ *          description: Se creo el Usuario
  *        '422':
  *          description: Error de validacion.
  */
@@ -169,5 +173,7 @@ UserRoutes.post('/actualizarPerfil/:id', upload, UserController.updateProfile);
 UserRoutes.get('/users/empresa', Authorization,UserController.listCompanyUsers);
 
 UserRoutes.get('/users/empresa/estres/sedes', Authorization,UserController.listEstresporSede);
+
+UserRoutes.get('/users/getpermisos/:user_id', UserController.getPermisos);
 
 export default UserRoutes;

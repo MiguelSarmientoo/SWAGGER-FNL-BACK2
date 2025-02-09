@@ -12,6 +12,7 @@ import { EstresContador } from "../../models/Clasificacion/estres_contador";
 import { UserResponses } from "../../models/User/user_responses";
 import { Hierarchical_level } from "../../models/User/hierarchical_level";
 import { UserPrograma } from "../../models/Program/userprograma";
+import moment from "moment-timezone";
 
 //import moment from "moment";
 
@@ -22,7 +23,13 @@ class MetricasController {
       const empresa_id = req.params.empresa_id;
       const cant = await User.count({
         where: {
-          empresa_id,
+          user_id: {
+            [Op.ne]: 1, // Excluye los mensajes enviados por el bot (user_id = 1)
+          },
+          role_id: {
+            [Op.ne]: 3, // Excluye los roles con id 3
+          },
+          empresa_id: empresa_id,
         },
       });
       if (!cant)
@@ -242,13 +249,10 @@ class MetricasController {
   
   
 
-  async InteraccionApp(req: any, res: any) {
+  async InteraccionApp2(req: any, res: any) {
     try {
       const empresa_id = req.params.empresa_id;
-
-      // Obtener la fecha de hoy en formato YYYY-MM-DD
-      const today = new Date();
-      const diaHoy = today.toISOString().slice(0, 10);  // Formato YYYY-MM-DD
+      const dia = req.params.dia;
 
       // 1. Obtener los usuarios que pertenecen a la empresa
       const users = await User.findAll({
@@ -258,44 +262,40 @@ class MetricasController {
       if (!users || users.length === 0) {
         return res.status(404).json({ error: "No se encontraron usuarios para esta empresa" });
       }
+
+      const todayLima = moment().tz("America/Lima").startOf("day");
+
+      const startOfDayUTC = todayLima.clone().tz("UTC").format("YYYY-MM-DD HH:mm:ss");
+      const endOfDayUTC = todayLima.clone().tz("UTC").endOf("day").format("YYYY-MM-DD HH:mm:ss");
+
+      console.log(`Buscando actividades entre ${startOfDayUTC} y ${endOfDayUTC}`);
+
   
       // 2. Buscar las actividades completadas hoy por cada usuario, solo una vez por usuario
       const usuariosCompletaronHoy = await UserPrograma.findAll({
         where: {
-          completed_date: {
-            [Op.between]: [
-              new Date(diaHoy + 'T00:00:00.000Z'), // Desde las 00:00 de hoy
-              new Date(diaHoy + 'T23:59:59.999Z')  // Hasta las 23:59 de hoy
-            ]
-          }
+          dia: dia,
+          completed_date: { [Op.ne]: null }
         },
-        attributes: ['user_id'], // Solo necesitamos el user_id
-        group: ['user_id'], // Agrupamos por user_id para contar cada usuario solo una vez
         include: [
           {
             model: User,
             required: true,
-            where: { empresa_id: empresa_id }  // Filtramos también por empresa_id en la tabla User
-          }
-        ]
+            where: { empresa_id: empresa_id },
+            attributes: ['username'] 
+          },
+        ],
+        raw: true, // 🔥 Devuelve datos en formato plano
+        nest: true // 🔥 Anida correctamente las relaciones
       });
 
 
-      // Calcular la cantidad de usuarios que han completado al menos una actividad hoy
-      const totalUsuariosCompletaronHoy = usuariosCompletaronHoy.length;
+      const data = usuariosCompletaronHoy.map(item => ({
+          user_id: item.user_id, // ✅ Ahora se puede acceder directamente sin `get()`
+          username: item.user.username
+      }));
 
-      // 3. Calcular el total de usuarios para la empresa
-      const totalUsuarios = users.length;
-
-      // 4. Calcular la cantidad de usuarios que no han completado ninguna actividad hoy
-      const usuariosNoCompletaronHoy = totalUsuarios - totalUsuariosCompletaronHoy;
-      // Responder con los resultados
-      return res.status(200).json({
-        totalUsuarios,
-        totalUsuariosCompletaronHoy,
-        usuariosNoCompletaronHoy
-      });
-
+      return res.status(200).json({data: data})
     } catch (error) {
       console.error("Error en InteraccionApp:", error);
       res.status(500).json({ message: "Error interno del servidor" });
@@ -339,6 +339,141 @@ class MetricasController {
       return res.status(500).json({ message: "Error interno del servidor" });
     }
   }
+
+
+  async EstrellasDia(req: any, res: any){
+    try{
+
+      const dia = req.params.dia;
+      const empresa_id = req.params.empresa_id;
+
+      const estrellasCount = await UserPrograma.findAll({
+        where:{
+          dia: dia,
+          completed_date: { [Op.ne]: null }
+        },
+        include: {
+          model: User,
+          required: true,
+          where:{
+            empresa_id: empresa_id
+          }
+        }
+      })
+
+      if (!estrellasCount){
+        return res.status(404).json({ message: `Los usuarios de la empresa ${empresa_id} no han completado actividades` });
+      }
+
+      
+      const totalEstrellas = estrellasCount.reduce((sum, item) => sum + (item.estrellas || 0), 0);
+      const promedio = totalEstrellas / estrellasCount.length;
+
+      return res.json({ promedioEstrellas: promedio.toFixed(2) });
+
+
+    } catch (error) {
+      console.error("Error en InteraccionApp:", error);
+      return res.status(500).json({ message: "Error interno del servidor" });
+    }
+  }
+
+
+  async InteraccionApp(req: any, res: any) {
+    try {
+      const empresa_id = req.params.empresa_id;
+
+
+      // 1. Obtener los usuarios que pertenecen a la empresa
+      const users = await User.findAll({
+        where: { empresa_id: empresa_id }
+      });
+
+      if (!users || users.length === 0) {
+        return res.status(404).json({ error: "No se encontraron usuarios para esta empresa" });
+      }
+
+      const todayLima = moment().tz("America/Lima").startOf("day");
+
+      const startOfDayUTC = todayLima.clone().tz("UTC").format("YYYY-MM-DD HH:mm:ss");
+      const endOfDayUTC = todayLima.clone().tz("UTC").endOf("day").format("YYYY-MM-DD HH:mm:ss");
+
+      console.log(`Buscando actividades entre ${startOfDayUTC} y ${endOfDayUTC}`);
+
+  
+      // 2. Buscar las actividades completadas hoy por cada usuario, solo una vez por usuario
+      const usuariosCompletaronHoy = await UserPrograma.findAll({
+        where: {
+          completed_date: {
+            [Op.between]: [startOfDayUTC, endOfDayUTC], // 🔴 Fechas convertidas a UTC
+          },
+        },
+        attributes: ["user_id"],
+        group: ["user_id"],
+        include: [
+          {
+            model: User,
+            required: true,
+            where: { empresa_id: empresa_id },
+          },
+        ],
+      });
+
+
+      const totalUsuariosCompletaronHoy = usuariosCompletaronHoy.length;
+      const totalUsuarios = users.length;
+      const usuariosNoCompletaronHoy = totalUsuarios - totalUsuariosCompletaronHoy;
+
+      return res.status(200).json({
+        totalUsuarios,
+        totalUsuariosCompletaronHoy,
+        usuariosNoCompletaronHoy,
+      });
+
+    } catch (error) {
+      console.error("Error en InteraccionApp:", error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  }
+
+
+  async EmojisDia(req: any, res: any){
+    try{
+
+      const dia = req.params.dia;
+      const empresa_id = req.params.empresa_id;
+
+      const estrellasCount = await UserPrograma.findAll({
+        where:{
+          dia: dia,
+          completed_date: { [Op.ne]: null }
+        },
+        include: {
+          model: User,
+          required: true,
+          where:{
+            empresa_id: empresa_id
+          }
+        }
+      })
+
+      if (!estrellasCount){
+        return res.status(404).json({ message: `Los usuarios de la empresa ${empresa_id} no han completado actividades` });
+      }
+
+      
+      const totalEstrellas = estrellasCount.reduce((sum, item) => sum + (item.estrellas || 0), 0);
+      const promedio = totalEstrellas / estrellasCount.length;
+
+      return res.json({ promedioEstrellas: promedio.toFixed(2) });
+
+
+    } catch (error) {
+      console.error("Error en InteraccionApp:", error);
+      return res.status(500).json({ message: "Error interno del servidor" });
+    }
+  }
+
 
 }
 

@@ -9,10 +9,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: myapp
     ports:
       - "3000:3000"
     environment:

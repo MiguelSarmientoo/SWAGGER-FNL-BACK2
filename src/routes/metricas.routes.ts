@@ -30,5 +30,10 @@ MetricasRouter.get("/total_empl_estres/:empresa_id", metricasController.TotalEmp
 
 MetricasRouter.get("/InteraccionApp/:empresa_id", metricasController.InteraccionApp);
 
+MetricasRouter.get("/InteraccionApp2/:dia/:empresa_id", metricasController.InteraccionApp2);
+
 MetricasRouter.get("/EstresSegunFuncy/:user_id", metricasController.EstresSegunFuncy);
+
+MetricasRouter.get("/estrellasdia/:dia/:empresa_id", metricasController.EstrellasDia);
+
 export default MetricasRouter;

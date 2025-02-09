@@ -73,11 +73,22 @@ class UserController {
     const { username, password, email, empresa_id, role_id } = req.body;
     const file = req.file;
 
+    
     try {
       if (!username || !password || !email || !role_id) {
         return res
           .status(400)
           .json({ error: "Todos los campos son obligatorios" });
+      }
+      
+      const existingUser = await User.findOne({
+          where: {
+              [Op.or]: [{ username }, { email }]
+          }
+      });
+
+      if (existingUser) {
+          return res.status(409).json({ error: "El nombre de usuario o el correo ya están en uso" });
       }
 
       let profileImagePath = null;
@@ -115,62 +126,57 @@ class UserController {
       const userProfile = await UserResponses.findOne({
         where: { user_id: req.params.id },
         include: [
-          { model: User, attributes: ["username", "email", "profileImage", "empresa_id", "role_id"] }, 
+          { model: User, attributes: ["username", "email", "profileImage", "empresa_id", "role_id"] },
           { model: Hierarchical_level, attributes: ["level"] },
-          {model: AgeRange, attributes: ['age_range'],},
-          {model: Gender, attributes: ['gender'],},
+          { model: AgeRange, attributes: ["age_range"] },
+          { model: Gender, attributes: ["gender"] },
         ],
       });
-
-      const userEstres = await UserEstresSession.findOne({
-        where: {
-          user_id: req.params.id 
-        },
-        attributes: ["estres_nivel_id"],
-      })
-
-      const messageUserDates = await Message.findAll({
-        where: { user_id: req.params.id }, // Filtrar por user_id
-        attributes: [
-          [Sequelize.fn('DATE', Sequelize.col('created_at')), 'unique_date'], // Extraer solo la fecha
-        ],
-        group: [Sequelize.fn('DATE', Sequelize.col('created_at'))], // Agrupar por fecha
-        order: [[Sequelize.fn('DATE', Sequelize.col('created_at')), 'ASC']], // Ordenar las fechas de forma ascendente
-      });
-
-
+  
       if (!userProfile) {
         return res.status(404).json({ error: "Usuario no encontrado" });
       }
-
-      if (!userEstres) {
-        return res.status(404).json({ error: "Usuario no encontrado" });
-      }
-
+  
+      // Obtener nivel de estrés si existe
+      let userEstres = await UserEstresSession.findOne({
+        where: { user_id: req.params.id },
+        attributes: ["estres_nivel_id"],
+      });
+  
+      // Obtener las fechas de mensajes enviados por el usuario
+      const messageUserDates = await Message.findAll({
+        where: { user_id: req.params.id },
+        attributes: [[Sequelize.fn("DATE", Sequelize.col("created_at")), "unique_date"]],
+        group: [Sequelize.fn("DATE", Sequelize.col("created_at"))],
+        order: [[Sequelize.fn("DATE", Sequelize.col("created_at")), "ASC"]],
+      });
+  
+      // Cálculo de días no usados
       const now = new Date();
       const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const dias_no_usados = endDate.getDate() - messageUserDates.length 
-
-      const response = {
-        username: userProfile.user.username,
-        email: userProfile.user.email,
-        hierarchicalLevel: userProfile.hierarchical_level.level,
-        age_range: userProfile.age_range.age_range,
-        gender: userProfile.gender.gender,
-        profileImage: userProfile.user.profileImage,
-        id_empresa: userProfile.user.empresa_id,
-        role_id: userProfile.user.role_id, 
-        nivel_estres: userEstres?.estres_nivel_id,
-        dias_usados: messageUserDates.length,
-        dias_no_usados: dias_no_usados
-      };
-
-      return res.json(response);
+      const dias_usados = messageUserDates.length || 0;
+      const dias_no_usados = endDate.getDate() - dias_usados;
+  
+      // Respuesta JSON con datos seguros
+      return res.json({
+        username: userProfile.user?.username || "Sin nombre",
+        email: userProfile.user?.email || "Sin email",
+        hierarchicalLevel: userProfile.hierarchical_level?.level || "No especificado",
+        age_range: userProfile.age_range?.age_range || "No especificado",
+        gender: userProfile.gender?.gender || "No especificado",
+        profileImage: userProfile.user?.profileImage || null,
+        id_empresa: userProfile.user?.empresa_id || null,
+        role_id: userProfile.user?.role_id || null,
+        nivel_estres: userEstres?.estres_nivel_id || "No completó el test",
+        dias_usados,
+        dias_no_usados,
+      });
     } catch (error) {
       console.error("Error al obtener el perfil de usuario:", error);
       return res.status(500).json({ error: "Error interno del servidor" });
     }
   }
+  
 
   async updateProfile(req: any, res: any) {
     const { id } = req.params;
@@ -617,6 +623,32 @@ class UserController {
             error: error.message
         });
     }
+<<<<<<< HEAD
+=======
+
+  async getPermisos(req: any, res: any){
+    try{
+      const { user_id } = req.params;
+
+        const user = await User.findOne({
+          where:{
+            id: user_id
+          },
+          attributes: ['permisopoliticas', 'userresponsebool', 'testestresbool']
+        });
+        if (!user) {
+          return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+        res.status(200).json(user);
+
+    } catch (error: any) {
+      console.error('Error en listCompanyUsers:', error);
+      return res.status(500).json({
+          message: 'Error al obtener los usuarios',
+          error: error.message
+      });
+    }
+>>>>>>> upstream/main
   }
 }
 export default new UserController();

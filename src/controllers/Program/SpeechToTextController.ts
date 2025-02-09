@@ -79,7 +79,7 @@ class SpeechTextController {
       }
       console.log(voiceId);
       // Establecer la voz predeterminada si no se pasa una
-      const voice = "Joanna"; // Puedes cambiar la voz predeterminada aquí
+      const voice = "Lucia"; // Puedes cambiar la voz predeterminada aquí
 
       // Generar el audio con Polly
       const params: Polly.Types.SynthesizeSpeechInput = {
